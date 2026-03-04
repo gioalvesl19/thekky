@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useCompany } from '@/lib/useCompany';
 import { useRouter } from 'next/navigation';
 import type { OccurrenceType } from '@/lib/types';
 
@@ -15,7 +15,7 @@ const occurrenceTypes: OccurrenceType[] = [
 ];
 
 export default function NovaOcorrenciaPage() {
-  const supabase = createClient();
+  const { companyId, userId, supabase } = useCompany();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,33 +31,19 @@ export default function NovaOcorrenciaPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!companyId) return;
     setLoading(true);
     setError('');
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('company_id')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile) {
-      setError('Perfil não encontrado');
-      setLoading(false);
-      return;
-    }
-
     const { error: insertError } = await supabase.from('occurrences').insert({
-      company_id: profile.company_id,
+      company_id: companyId,
       title: form.title,
       description: form.description || null,
       type: form.type,
       origin: form.origin || null,
       area: form.area || null,
       confidential: form.confidential,
-      created_by: user.id,
+      created_by: userId,
       status: 'aberta',
     });
 
@@ -70,7 +56,7 @@ export default function NovaOcorrenciaPage() {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl animate-in">
       <h1 className="text-2xl font-bold mb-6">Cadastrar Ocorrência</h1>
 
       {/* Steps indicator */}

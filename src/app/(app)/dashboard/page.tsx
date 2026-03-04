@@ -1,152 +1,154 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { FileText, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { useCompany } from '@/lib/useCompany';
+import { FileText, AlertCircle, ShieldAlert, Users, ArrowRight, AlertTriangle, UserCheck } from 'lucide-react';
 import Link from 'next/link';
-import StatusBadge from '@/components/StatusBadge';
-import type { Occurrence } from '@/lib/types';
+import Loading from '@/components/Loading';
+import StatCard from '@/components/StatCard';
+
+type ModuleStats = {
+  occurrences: { total: number; abertas: number; acoesPendentes: number };
+  ssh: { total: number; abertos: number; criticos: number };
+  rh: { totalEmployees: number; ativos: number; departments: number };
+};
 
 export default function DashboardPage() {
-  const supabase = createClient();
-  const [stats, setStats] = useState({
-    total: 0,
-    abertas: 0,
-    emAnalise: 0,
-    resolvidas: 0,
-    acoesPendentes: 0,
+  const { companyId, supabase, loading: authLoading } = useCompany();
+  const [stats, setStats] = useState<ModuleStats>({
+    occurrences: { total: 0, abertas: 0, acoesPendentes: 0 },
+    ssh: { total: 0, abertos: 0, criticos: 0 },
+    rh: { totalEmployees: 0, ativos: 0, departments: 0 },
   });
-  const [recentOccurrences, setRecentOccurrences] = useState<Occurrence[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadData() {
-      // Get profile for company_id
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (authLoading || !companyId) return;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('company_id')
-        .eq('id', user.id)
-        .single();
+    async function load() {
+      const [occRes, actRes, sshRes, empRes, deptRes] = await Promise.all([
+        supabase.from('occurrences').select('status').eq('company_id', companyId!),
+        supabase.from('actions').select('status, occurrences!inner(company_id)').eq('occurrences.company_id', companyId!),
+        supabase.from('safety_incidents').select('status, severity').eq('company_id', companyId!),
+        supabase.from('employees').select('status').eq('company_id', companyId!),
+        supabase.from('departments').select('id').eq('company_id', companyId!),
+      ]);
 
-      if (!profile) return;
+      const occ = occRes.data || [];
+      const act = actRes.data || [];
+      const ssh = sshRes.data || [];
+      const emp = empRes.data || [];
+      const dept = deptRes.data || [];
 
-      // Load occurrences
-      const { data: occurrences } = await supabase
-        .from('occurrences')
-        .select('*')
-        .eq('company_id', profile.company_id)
-        .order('created_at', { ascending: false });
-
-      // Load pending actions
-      const { count: pendingActions } = await supabase
-        .from('actions')
-        .select('*, occurrences!inner(company_id)', { count: 'exact', head: true })
-        .eq('occurrences.company_id', profile.company_id)
-        .eq('status', 'pendente');
-
-      if (occurrences) {
-        setStats({
-          total: occurrences.length,
-          abertas: occurrences.filter((o) => o.status === 'aberta').length,
-          emAnalise: occurrences.filter((o) => o.status === 'em_analise').length,
-          resolvidas: occurrences.filter((o) => o.status === 'resolvida').length,
-          acoesPendentes: pendingActions || 0,
-        });
-        setRecentOccurrences(occurrences.slice(0, 5));
-      }
+      setStats({
+        occurrences: {
+          total: occ.length,
+          abertas: occ.filter((o) => o.status === 'aberta').length,
+          acoesPendentes: act.filter((a) => a.status === 'pendente').length,
+        },
+        ssh: {
+          total: ssh.length,
+          abertos: ssh.filter((s) => s.status === 'aberto').length,
+          criticos: ssh.filter((s) => s.severity === 'critica' || s.severity === 'alta').length,
+        },
+        rh: {
+          totalEmployees: emp.length,
+          ativos: emp.filter((e) => e.status === 'ativo').length,
+          departments: dept.length,
+        },
+      });
 
       setLoading(false);
     }
 
-    loadData();
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading, companyId]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-      </div>
-    );
-  }
+  if (loading || authLoading) return <Loading />;
 
-  const cards = [
-    { label: 'Total de Ocorrências', value: stats.total, icon: FileText, color: 'bg-blue-500' },
-    { label: 'Ocorrências Abertas', value: stats.abertas, icon: AlertCircle, color: 'bg-red-500' },
-    { label: 'Em Análise', value: stats.emAnalise, icon: Clock, color: 'bg-yellow-500' },
-    { label: 'Resolvidas', value: stats.resolvidas, icon: CheckCircle, color: 'bg-green-500' },
-    { label: 'Ações Pendentes', value: stats.acoesPendentes, icon: Clock, color: 'bg-orange-500' },
+  const moduleCards = [
+    {
+      title: 'Ocorrências',
+      href: '/ocorrencias',
+      color: 'border-l-blue-500',
+      bgColor: 'bg-blue-50',
+      icon: FileText,
+      iconColor: 'text-blue-600',
+      stats: [
+        { label: 'Total', value: stats.occurrences.total },
+        { label: 'Abertas', value: stats.occurrences.abertas },
+        { label: 'Ações pendentes', value: stats.occurrences.acoesPendentes },
+      ],
+    },
+    {
+      title: 'SSH - Segurança',
+      href: '/ssh',
+      color: 'border-l-orange-500',
+      bgColor: 'bg-orange-50',
+      icon: ShieldAlert,
+      iconColor: 'text-orange-600',
+      stats: [
+        { label: 'Incidentes', value: stats.ssh.total },
+        { label: 'Abertos', value: stats.ssh.abertos },
+        { label: 'Críticos/Altos', value: stats.ssh.criticos },
+      ],
+    },
+    {
+      title: 'RH - Recursos Humanos',
+      href: '/rh',
+      color: 'border-l-green-500',
+      bgColor: 'bg-green-50',
+      icon: Users,
+      iconColor: 'text-green-600',
+      stats: [
+        { label: 'Colaboradores', value: stats.rh.totalEmployees },
+        { label: 'Ativos', value: stats.rh.ativos },
+        { label: 'Departamentos', value: stats.rh.departments },
+      ],
+    },
   ];
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+    <div className="animate-in">
+      <h1 className="text-2xl font-bold tracking-tight mb-1">Dashboard</h1>
+      <p className="text-sm text-gray-500 mb-8">Visão geral de todos os módulos</p>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-        {cards.map((card) => (
-          <div key={card.label} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <div className="flex items-center gap-3">
-              <div className={`${card.color} p-2.5 rounded-lg`}>
-                <card.icon className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{card.value}</p>
-                <p className="text-xs text-gray-500">{card.label}</p>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* Top Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard label="Ocorrências Abertas" value={stats.occurrences.abertas} icon={AlertCircle} color="bg-red-500" />
+        <StatCard label="Ações Pendentes" value={stats.occurrences.acoesPendentes} icon={FileText} color="bg-blue-500" />
+        <StatCard label="Incidentes SSH" value={stats.ssh.abertos} icon={AlertTriangle} color="bg-orange-500" subtitle="Abertos" />
+        <StatCard label="Colaboradores" value={stats.rh.ativos} icon={UserCheck} color="bg-green-500" subtitle="Ativos" />
       </div>
 
-      {/* Recent Occurrences */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Ocorrências Recentes</h2>
-          <Link href="/ocorrencias" className="text-sm text-blue-600 hover:underline">
-            Ver todas
-          </Link>
-        </div>
-        {recentOccurrences.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            Nenhuma ocorrência registrada ainda.
-            <Link href="/ocorrencias/nova" className="text-blue-600 hover:underline ml-1">
-              Criar primeira ocorrência
-            </Link>
-          </div>
-        ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Título</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Data</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {recentOccurrences.map((occ) => (
-                <tr key={occ.id} className="hover:bg-gray-50">
-                  <td className="px-5 py-3">
-                    <Link href={`/ocorrencias/${occ.id}`} className="text-blue-600 hover:underline font-medium">
-                      {occ.title}
-                    </Link>
-                  </td>
-                  <td className="px-5 py-3 text-sm text-gray-600">{occ.type}</td>
-                  <td className="px-5 py-3">
-                    <StatusBadge status={occ.status} />
-                  </td>
-                  <td className="px-5 py-3 text-sm text-gray-500">
-                    {new Date(occ.created_at).toLocaleDateString('pt-BR')}
-                  </td>
-                </tr>
+      {/* Module Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {moduleCards.map((mod) => (
+          <Link
+            key={mod.href}
+            href={mod.href}
+            className={`bg-white rounded-xl border border-gray-100 border-l-4 ${mod.color} p-5 hover:shadow-lg transition-all duration-200 group`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`${mod.bgColor} p-2 rounded-lg`}>
+                  <mod.icon className={`w-5 h-5 ${mod.iconColor}`} />
+                </div>
+                <h3 className="font-semibold">{mod.title}</h3>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:translate-x-1 transition-transform duration-200" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {mod.stats.map((s) => (
+                <div key={s.label} className="text-center">
+                  <p className="text-xl font-bold">{s.value}</p>
+                  <p className="text-[10px] text-gray-500 uppercase">{s.label}</p>
+                </div>
               ))}
-            </tbody>
-          </table>
-        )}
+            </div>
+          </Link>
+        ))}
       </div>
     </div>
   );
