@@ -18,7 +18,8 @@ export default function OcorrenciasListaPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading || !companyId) return;
+    if (authLoading) return;
+    if (!companyId) { setLoading(false); return; }
 
     async function load() {
       const { data } = await supabase
@@ -52,7 +53,7 @@ export default function OcorrenciasListaPage() {
     setFiltered(result);
   }, [search, statusFilter, occurrences]);
 
-  if (loading || authLoading) return <Loading />;
+  if (loading) return <Loading />;
 
   return (
     <div className="animate-in">

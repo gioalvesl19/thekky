@@ -19,7 +19,8 @@ export default function IncidentesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading || !companyId) return;
+    if (authLoading) return;
+    if (!companyId) { setLoading(false); return; }
     async function load() {
       const { data } = await supabase
         .from('safety_incidents')
@@ -40,7 +41,7 @@ export default function IncidentesPage() {
     setFiltered(result);
   }, [search, statusFilter, items]);
 
-  if (loading || authLoading) return <Loading />;
+  if (loading) return <Loading />;
 
   return (
     <div className="animate-in">

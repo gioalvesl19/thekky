@@ -23,7 +23,8 @@ export default function DepartamentosPage() {
   };
 
   useEffect(() => {
-    if (authLoading || !companyId) return;
+    if (authLoading) return;
+    if (!companyId) { setLoading(false); return; }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, companyId]);
@@ -45,7 +46,7 @@ export default function DepartamentosPage() {
     load();
   };
 
-  if (loading || authLoading) return <Loading />;
+  if (loading) return <Loading />;
 
   return (
     <div className="animate-in">

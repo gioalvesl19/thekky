@@ -14,7 +14,8 @@ export default function RHPainelPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading || !companyId) return;
+    if (authLoading) return;
+    if (!companyId) { setLoading(false); return; }
 
     async function load() {
       const [empRes, deptRes] = await Promise.all([
@@ -38,7 +39,7 @@ export default function RHPainelPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, companyId]);
 
-  if (loading || authLoading) return <Loading />;
+  if (loading) return <Loading />;
 
   return (
     <div className="animate-in">
