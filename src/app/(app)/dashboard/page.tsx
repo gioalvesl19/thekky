@@ -23,7 +23,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading || !companyId) return;
+    if (authLoading) return;
+    if (!companyId) { setLoading(false); return; }
 
     async function load() {
       const [occRes, actRes, sshRes, empRes, deptRes] = await Promise.all([
@@ -65,7 +66,7 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, companyId]);
 
-  if (loading || authLoading) return <Loading />;
+  if (loading) return <Loading />;
 
   const moduleCards = [
     {

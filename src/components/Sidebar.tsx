@@ -14,10 +14,16 @@ import {
   UserPlus,
   Building2,
   Plus,
+  Settings,
+  MapPin,
+  Lock,
+  Key,
+  User,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import type { UserRole } from '@/lib/types';
 
 type NavItem = {
   href: string;
@@ -31,6 +37,7 @@ type NavGroup = {
   basePath: string;
   color: string;
   items: NavItem[];
+  adminOnly?: boolean;
 };
 
 const modules: NavGroup[] = [
@@ -67,12 +74,29 @@ const modules: NavGroup[] = [
       { href: '/rh/departamentos', label: 'Departamentos', icon: Building2 },
     ],
   },
+  {
+    label: 'Sistema',
+    icon: Settings,
+    basePath: '/sistema',
+    color: 'text-purple-400',
+    adminOnly: true,
+    items: [
+      { href: '/sistema/pessoas', label: 'Pessoas', icon: User },
+      { href: '/sistema/areas', label: 'Áreas', icon: MapPin },
+      { href: '/sistema/unidade', label: 'Unidade', icon: Building2 },
+      { href: '/sistema/permissoes', label: 'Permissões', icon: Lock },
+      { href: '/sistema/configurar', label: 'Configurar Sistema', icon: Settings },
+      { href: '/sistema/alterar-senha', label: 'Alterar Senha', icon: Key },
+    ],
+  },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+  const [role, setRole] = useState<UserRole>('user');
+  const [userName, setUserName] = useState('');
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     modules.forEach((m) => {
@@ -80,6 +104,23 @@ export default function Sidebar() {
     });
     return initial;
   });
+
+  useEffect(() => {
+    async function loadRole() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('role, name')
+        .eq('id', user.id)
+        .single();
+      if (data) {
+        setRole((data.role as UserRole) || 'user');
+        setUserName(data.name || user.email?.split('@')[0] || '');
+      }
+    }
+    loadRole();
+  }, [supabase]);
 
   const toggleGroup = (basePath: string) => {
     setOpenGroups((prev) => ({ ...prev, [basePath]: !prev[basePath] }));
@@ -90,62 +131,60 @@ export default function Sidebar() {
     router.push('/login');
   };
 
+  const visibleModules = modules.filter((m) => !m.adminOnly || role === 'admin');
+
   return (
-    <aside className="w-64 bg-gray-900 text-white min-h-screen flex flex-col shrink-0">
+    <aside className="w-60 bg-gray-900 text-white min-h-screen flex flex-col shrink-0">
       {/* Logo */}
-      <div className="p-5 border-b border-gray-800">
+      <div className="px-4 py-4 border-b border-gray-800">
         <Link href="/dashboard" className="block">
-          <h1 className="text-xl font-bold tracking-tight">THEKKY</h1>
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">Sistema de Gestão</p>
+          <h1 className="text-lg font-bold tracking-tight">THEKKY</h1>
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest">Sistema de Gestão</p>
         </Link>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
         {/* Dashboard */}
         <Link
           href="/dashboard"
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
             pathname === '/dashboard'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'text-gray-400 hover:bg-gray-800/60 hover:text-white'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-400 hover:bg-gray-800 hover:text-white'
           }`}
         >
-          <LayoutDashboard className="w-4.5 h-4.5" />
+          <LayoutDashboard className="w-4 h-4 shrink-0" />
           Dashboard
         </Link>
 
-        <div className="pt-2" />
+        <div className="h-2" />
 
         {/* Module Groups */}
-        {modules.map((group) => {
+        {visibleModules.map((group) => {
           const isGroupActive = pathname.startsWith(group.basePath);
-          const isOpen = openGroups[group.basePath] || isGroupActive;
+          const isOpen = openGroups[group.basePath] ?? isGroupActive;
 
           return (
             <div key={group.basePath}>
               <button
                 onClick={() => toggleGroup(group.basePath)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   isGroupActive
                     ? 'bg-gray-800 text-white'
-                    : 'text-gray-400 hover:bg-gray-800/40 hover:text-gray-200'
+                    : 'text-gray-400 hover:bg-gray-800/60 hover:text-gray-200'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <group.icon className={`w-4.5 h-4.5 ${isGroupActive ? group.color : ''}`} />
+                <div className="flex items-center gap-2.5">
+                  <group.icon className={`w-4 h-4 shrink-0 ${isGroupActive ? group.color : ''}`} />
                   {group.label}
+                  {group.adminOnly && (
+                    <span className="text-[9px] bg-purple-800 text-purple-300 px-1.5 py-0.5 rounded font-semibold">ADM</span>
+                  )}
                 </div>
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-                />
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Sub-items */}
-              <div
-                className={`overflow-hidden transition-all duration-200 ${
-                  isOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
-                }`}
-              >
+              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="ml-3 pl-3 border-l border-gray-800 space-y-0.5 py-1">
                   {group.items.map((item) => {
                     const isActive = pathname === item.href;
@@ -153,13 +192,13 @@ export default function Sidebar() {
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium transition-all duration-150 ${
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
                           isActive
-                            ? 'bg-gray-800 text-white'
-                            : 'text-gray-500 hover:bg-gray-800/40 hover:text-gray-300'
+                            ? 'bg-gray-700 text-white'
+                            : 'text-gray-500 hover:bg-gray-800/60 hover:text-gray-300'
                         }`}
                       >
-                        <item.icon className="w-3.5 h-3.5" />
+                        <item.icon className="w-3.5 h-3.5 shrink-0" />
                         {item.label}
                       </Link>
                     );
@@ -171,10 +210,16 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="p-3 border-t border-gray-800">
+      <div className="px-2 py-2 border-t border-gray-800">
+        {userName && (
+          <div className="px-3 py-2 mb-1">
+            <p className="text-xs text-gray-400 truncate">{userName}</p>
+            <p className="text-[10px] text-gray-600 capitalize">{role}</p>
+          </div>
+        )}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-800/60 hover:text-gray-300 transition-all duration-200 w-full"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-all w-full"
         >
           <LogOut className="w-4 h-4" />
           Sair
