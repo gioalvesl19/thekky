@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { UserRole } from '@/lib/types';
 
 export function useCompany() {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('');
@@ -30,14 +32,16 @@ export function useCompany() {
           .eq('id', user.id)
           .single();
 
-        if (profileError) {
-          console.error('Profile fetch error:', profileError.message);
-          setError(profileError.message);
-        } else if (profile) {
-          setCompanyId(profile.company_id);
-          setRole((profile.role as UserRole) || 'user');
-          setUserName(profile.name || user.email?.split('@')[0] || '');
+        if (profileError || !profile) {
+          // Usuário autenticado mas sem perfil — fazer logout e redirecionar
+          await supabase.auth.signOut();
+          router.replace('/login');
+          return;
         }
+
+        setCompanyId(profile.company_id);
+        setRole((profile.role as UserRole) || 'user');
+        setUserName(profile.name || '');
       } catch (e) {
         console.error('useCompany error:', e);
         setError('Erro ao carregar dados');
@@ -45,7 +49,7 @@ export function useCompany() {
       setLoading(false);
     }
     load();
-  }, [supabase]);
+  }, [supabase, router]);
 
   const isAdmin = role === 'admin';
   const isManager = role === 'admin' || role === 'manager';

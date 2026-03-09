@@ -150,11 +150,15 @@ export default function Sidebar() {
         .single();
       if (data) {
         setRole((data.role as UserRole) || 'user');
-        setUserName(data.name || user.email?.split('@')[0] || '');
+        setUserName(data.name || '');
+      } else {
+        // Sem perfil: forçar logout e redirecionar ao login
+        await supabase.auth.signOut();
+        router.replace('/login');
       }
     }
     loadRole();
-  }, [supabase]);
+  }, [supabase, router]);
 
   const toggleGroup = (basePath: string) => {
     setOpenGroups((prev) => ({ ...prev, [basePath]: !prev[basePath] }));
