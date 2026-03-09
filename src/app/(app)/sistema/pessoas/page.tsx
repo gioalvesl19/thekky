@@ -22,19 +22,26 @@ const roleColors: Record<UserRole, string> = {
 
 const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500';
 
+type ProfileWithUsername = Profile & { username?: string };
+
 export default function PessoasPage() {
   const { companyId, userId, isAdmin, supabase, loading: authLoading } = useCompany();
   const router = useRouter();
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profiles, setProfiles] = useState<ProfileWithUsername[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editRole, setEditRole] = useState<UserRole>('user');
   const [editName, setEditName] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Create user form
+  // Formulário de criação
   const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'user' as UserRole });
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    username: '',
+    password: '',
+    role: 'user' as UserRole,
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [createError, setCreateError] = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
@@ -42,8 +49,12 @@ export default function PessoasPage() {
 
   const loadProfiles = async () => {
     if (!companyId) return;
-    const { data } = await supabase.from('profiles').select('*').eq('company_id', companyId).order('created_at');
-    if (data) setProfiles(data as Profile[]);
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at');
+    if (data) setProfiles(data as ProfileWithUsername[]);
     setLoading(false);
   };
 
@@ -55,7 +66,7 @@ export default function PessoasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, companyId, isAdmin]);
 
-  const handleEdit = (p: Profile) => {
+  const handleEdit = (p: ProfileWithUsername) => {
     setEditingId(p.id);
     setEditRole(p.role);
     setEditName(p.name || '');
@@ -86,7 +97,7 @@ export default function PessoasPage() {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          email: createForm.email,
+          username: createForm.username,
           password: createForm.password,
           name: createForm.name,
           role: createForm.role,
@@ -99,7 +110,7 @@ export default function PessoasPage() {
         setCreateError(data.error || 'Erro ao criar usuário.');
       } else {
         setCreateSuccess(`✓ ${data.message}`);
-        setCreateForm({ name: '', email: '', password: '', role: 'user' });
+        setCreateForm({ name: '', username: '', password: '', role: 'user' });
         setShowCreate(false);
         loadProfiles();
       }
@@ -147,11 +158,14 @@ export default function PessoasPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">E-mail (usado para login) *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Usuário (usado para login) *
+              </label>
               <input
-                type="email" required value={createForm.email}
-                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                className={inputClass} placeholder="email@empresa.com"
+                type="text" required value={createForm.username}
+                onChange={(e) => setCreateForm({ ...createForm, username: e.target.value.toLowerCase().replace(/\s/g, '') })}
+                className={inputClass} placeholder="ex: joaosilva"
+                title="Apenas letras, números, pontos, underscores ou hífens"
               />
             </div>
           </div>
@@ -203,6 +217,7 @@ export default function PessoasPage() {
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Nome</th>
+                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Usuário</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Perfil</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Desde</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Ações</th>
@@ -220,6 +235,11 @@ export default function PessoasPage() {
                         {p.id === userId && <span className="text-xs text-blue-500">(você)</span>}
                       </div>
                     )}
+                  </td>
+                  <td className="px-5 py-3">
+                    <span className="text-sm text-gray-600 font-mono bg-gray-100 px-2 py-0.5 rounded">
+                      {p.username || '-'}
+                    </span>
                   </td>
                   <td className="px-5 py-3">
                     {editingId === p.id ? (

@@ -19,6 +19,23 @@ import {
   Lock,
   Key,
   User,
+  Calendar,
+  HardDrive,
+  Mail,
+  Building,
+  CreditCard,
+  Ban,
+  CalendarCheck,
+  Phone,
+  CalendarX,
+  MessageSquare,
+  BookOpen,
+  ListChecks,
+  Activity,
+  FileCheck,
+  Grid2X2,
+  Clock,
+  Megaphone,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -81,12 +98,29 @@ const modules: NavGroup[] = [
     color: 'text-purple-400',
     adminOnly: true,
     items: [
-      { href: '/sistema/pessoas', label: 'Pessoas', icon: User },
-      { href: '/sistema/areas', label: 'Áreas', icon: MapPin },
-      { href: '/sistema/unidade', label: 'Unidade', icon: Building2 },
-      { href: '/sistema/permissoes', label: 'Permissões', icon: Lock },
-      { href: '/sistema/configurar', label: 'Configurar Sistema', icon: Settings },
+      { href: '/sistema/agenda', label: 'Agenda', icon: Calendar },
       { href: '/sistema/alterar-senha', label: 'Alterar Senha', icon: Key },
+      { href: '/sistema/areas', label: 'Áreas', icon: MapPin },
+      { href: '/sistema/backups', label: 'Backups Gerados', icon: HardDrive },
+      { href: '/sistema/central-emails-tarefas', label: 'Central de E-mails e Tarefas', icon: Mail },
+      { href: '/sistema/cidade', label: 'Cidade', icon: Building },
+      { href: '/sistema/cobranca', label: 'Cobrança', icon: CreditCard },
+      { href: '/sistema/configurar-bloqueios', label: 'Configurar Bloqueios', icon: Ban },
+      { href: '/sistema/configurar-dias-uteis', label: 'Configurar Dias Úteis', icon: CalendarCheck },
+      { href: '/sistema/configurar', label: 'Configurar Sistema', icon: Settings },
+      { href: '/sistema/contatos', label: 'Contatos', icon: Phone },
+      { href: '/sistema/feriado', label: 'Feriado / Data Nula', icon: CalendarX },
+      { href: '/sistema/forum', label: 'Fórum', icon: MessageSquare },
+      { href: '/sistema/guia-implantacao', label: 'Guia de Implantação', icon: BookOpen },
+      { href: '/sistema/lista-permissoes', label: 'Lista de Permissões', icon: ListChecks },
+      { href: '/sistema/permissoes', label: 'Permissões', icon: Lock },
+      { href: '/sistema/pessoas', label: 'Pessoas', icon: User },
+      { href: '/sistema/raio-x', label: 'Raio X de Uso do Sistema', icon: Activity },
+      { href: '/sistema/requisitos-regulamentares', label: 'Requisitos Regulamentares', icon: FileCheck },
+      { href: '/sistema/tabela-iaf-nace', label: 'Tabela Código IAF/NACE', icon: Grid2X2 },
+      { href: '/sistema/turno', label: 'Turno', icon: Clock },
+      { href: '/sistema/unidade', label: 'Unidade', icon: Building2 },
+      { href: '/sistema/versoes', label: 'Versões / Comunicados de Atualizações do Sistema', icon: Megaphone },
     ],
   },
 ];
@@ -184,7 +218,7 @@ export default function Sidebar() {
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="ml-3 pl-3 border-l border-gray-800 space-y-0.5 py-1">
                   {group.items.map((item) => {
                     const isActive = pathname === item.href;
