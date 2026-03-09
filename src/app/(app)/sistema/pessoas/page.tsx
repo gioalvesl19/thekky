@@ -62,17 +62,11 @@ export default function PessoasPage() {
     if (data) setProfiles(data as Profile[]);
   };
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
-    setInviteMsg('');
-    const { error } = await supabase.auth.admin?.inviteUserByEmail
-      ? { error: new Error('Use o painel Supabase para convidar usuários.') }
-      : { error: new Error('') };
-
-    if (error?.message) {
-      // Fallback: create profile placeholder to let user sign up manually
-      setInviteMsg(`Convide ${inviteEmail} para criar conta em: ${window.location.origin}/login — após o registro, o perfil será vinculado e você pode editar as permissões aqui.`);
-    }
+    setInviteMsg(`Convide ${inviteEmail} para criar conta em: ${window.location.origin}/login — após o cadastro, o perfil será vinculado à empresa e você poderá definir a função "${roleLabels[inviteRole]}" aqui nesta página.`);
+    setInviteEmail('');
+    setInviteName('');
     setShowInvite(false);
   };
 

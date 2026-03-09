@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useCompany } from '@/lib/useCompany';
 import PageHeader from '@/components/PageHeader';
 import Loading from '@/components/Loading';
-import { Search } from 'lucide-react';
+import { Search, Pencil, Check, X, Trash2 } from 'lucide-react';
 import type { Employee } from '@/lib/types';
 
 export default function ColaboradoresPage() {
@@ -13,16 +13,21 @@ export default function ColaboradoresPage() {
   const [filtered, setFiltered] = useState<Employee[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', position: '', email: '', hire_date: '' });
+  const [saving, setSaving] = useState(false);
+
+  const loadItems = async () => {
+    if (!companyId) return;
+    const { data } = await supabase.from('employees').select('*').eq('company_id', companyId).order('name');
+    if (data) { setItems(data); setFiltered(data); }
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (authLoading) return;
     if (!companyId) { setLoading(false); return; }
-    async function load() {
-      const { data } = await supabase.from('employees').select('*').eq('company_id', companyId!).order('name');
-      if (data) { setItems(data); setFiltered(data); }
-      setLoading(false);
-    }
-    load();
+    loadItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, companyId]);
 
@@ -36,8 +41,31 @@ export default function ColaboradoresPage() {
 
   const handleStatusChange = async (id: string, status: string) => {
     await supabase.from('employees').update({ status }).eq('id', id);
-    const { data } = await supabase.from('employees').select('*').eq('company_id', companyId!).order('name');
-    if (data) { setItems(data); setFiltered(data); }
+    loadItems();
+  };
+
+  const handleEdit = (emp: Employee) => {
+    setEditingId(emp.id);
+    setEditForm({ name: emp.name, position: emp.position || '', email: emp.email || '', hire_date: emp.hire_date || '' });
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    setSaving(true);
+    await supabase.from('employees').update({
+      name: editForm.name,
+      position: editForm.position || null,
+      email: editForm.email || null,
+      hire_date: editForm.hire_date || null,
+    }).eq('id', id);
+    setSaving(false);
+    setEditingId(null);
+    loadItems();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Remover este colaborador?')) return;
+    await supabase.from('employees').delete().eq('id', id);
+    loadItems();
   };
 
   if (loading) return <Loading />;
@@ -66,15 +94,44 @@ export default function ColaboradoresPage() {
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Email</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Admissão</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((emp) => (
                 <tr key={emp.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-5 py-3 text-sm font-medium">{emp.name}</td>
-                  <td className="px-5 py-3 text-sm text-gray-600">{emp.position || '-'}</td>
-                  <td className="px-5 py-3 text-sm text-gray-600">{emp.email || '-'}</td>
-                  <td className="px-5 py-3 text-sm text-gray-500">{emp.hire_date ? new Date(emp.hire_date).toLocaleDateString('pt-BR') : '-'}</td>
+                  <td className="px-5 py-3">
+                    {editingId === emp.id ? (
+                      <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                    ) : (
+                      <span className="text-sm font-medium">{emp.name}</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {editingId === emp.id ? (
+                      <input value={editForm.position} onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="Cargo" />
+                    ) : (
+                      <span className="text-sm text-gray-600">{emp.position || '-'}</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {editingId === emp.id ? (
+                      <input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="email@..." />
+                    ) : (
+                      <span className="text-sm text-gray-600">{emp.email || '-'}</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {editingId === emp.id ? (
+                      <input type="date" value={editForm.hire_date} onChange={(e) => setEditForm({ ...editForm, hire_date: e.target.value })}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                    ) : (
+                      <span className="text-sm text-gray-500">{emp.hire_date ? new Date(emp.hire_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+                    )}
+                  </td>
                   <td className="px-5 py-3">
                     <select value={emp.status} onChange={(e) => handleStatusChange(emp.id, e.target.value)}
                       className="text-xs border border-gray-200 rounded px-2 py-1">
@@ -83,6 +140,29 @@ export default function ColaboradoresPage() {
                       <option value="ferias">Férias</option>
                       <option value="afastado">Afastado</option>
                     </select>
+                  </td>
+                  <td className="px-5 py-3">
+                    <div className="flex gap-1">
+                      {editingId === emp.id ? (
+                        <>
+                          <button onClick={() => handleSaveEdit(emp.id)} disabled={saving} className="p-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="p-1.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => handleEdit(emp)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => handleDelete(emp.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

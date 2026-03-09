@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useCompany } from '@/lib/useCompany';
 import PageHeader from '@/components/PageHeader';
 import Loading from '@/components/Loading';
+import { Pencil, Check, X, Trash2 } from 'lucide-react';
 import type { SafetyInspection } from '@/lib/types';
 
 export default function InspecoesPage() {
@@ -13,6 +14,8 @@ export default function InspecoesPage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ title: '', area: '', inspector: '', inspection_date: '', next_inspection: '' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ title: '', area: '', inspector: '', inspection_date: '', next_inspection: '' });
 
   const load = async () => {
     if (!companyId) return;
@@ -44,6 +47,31 @@ export default function InspecoesPage() {
 
   const handleStatusChange = async (id: string, status: string) => {
     await supabase.from('safety_inspections').update({ status }).eq('id', id);
+    load();
+  };
+
+  const handleEdit = (insp: SafetyInspection) => {
+    setEditingId(insp.id);
+    setEditForm({
+      title: insp.title, area: insp.area || '', inspector: insp.inspector,
+      inspection_date: insp.inspection_date || '', next_inspection: insp.next_inspection || '',
+    });
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    setSaving(true);
+    await supabase.from('safety_inspections').update({
+      title: editForm.title, area: editForm.area || null, inspector: editForm.inspector,
+      inspection_date: editForm.inspection_date || null, next_inspection: editForm.next_inspection || null,
+    }).eq('id', id);
+    setSaving(false);
+    setEditingId(null);
+    load();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Remover esta inspeção?')) return;
+    await supabase.from('safety_inspections').delete().eq('id', id);
     load();
   };
 
@@ -108,15 +136,44 @@ export default function InspecoesPage() {
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Inspetor</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Data</th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="text-right px-5 py-3 text-xs font-medium text-gray-500 uppercase">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {items.map((insp) => (
                 <tr key={insp.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-5 py-3 text-sm font-medium">{insp.title}</td>
-                  <td className="px-5 py-3 text-sm text-gray-600">{insp.area || '-'}</td>
-                  <td className="px-5 py-3 text-sm text-gray-600">{insp.inspector}</td>
-                  <td className="px-5 py-3 text-sm text-gray-500">{insp.inspection_date ? new Date(insp.inspection_date).toLocaleDateString('pt-BR') : '-'}</td>
+                  <td className="px-5 py-3">
+                    {editingId === insp.id ? (
+                      <input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                    ) : (
+                      <span className="text-sm font-medium">{insp.title}</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {editingId === insp.id ? (
+                      <input value={editForm.area} onChange={(e) => setEditForm({ ...editForm, area: e.target.value })}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                    ) : (
+                      <span className="text-sm text-gray-600">{insp.area || '-'}</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {editingId === insp.id ? (
+                      <input value={editForm.inspector} onChange={(e) => setEditForm({ ...editForm, inspector: e.target.value })}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                    ) : (
+                      <span className="text-sm text-gray-600">{insp.inspector}</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {editingId === insp.id ? (
+                      <input type="date" value={editForm.inspection_date} onChange={(e) => setEditForm({ ...editForm, inspection_date: e.target.value })}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                    ) : (
+                      <span className="text-sm text-gray-500">{insp.inspection_date ? new Date(insp.inspection_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+                    )}
+                  </td>
                   <td className="px-5 py-3">
                     <select value={insp.status} onChange={(e) => handleStatusChange(insp.id, e.target.value)}
                       className="text-xs border border-gray-200 rounded px-2 py-1">
@@ -124,6 +181,29 @@ export default function InspecoesPage() {
                       <option value="em_andamento">Em Andamento</option>
                       <option value="concluida">Concluída</option>
                     </select>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex gap-1 justify-end">
+                      {editingId === insp.id ? (
+                        <>
+                          <button onClick={() => handleSaveEdit(insp.id)} disabled={saving} className="p-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="p-1.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => handleEdit(insp)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => handleDelete(insp.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

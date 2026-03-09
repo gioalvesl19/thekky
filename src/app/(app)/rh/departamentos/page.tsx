@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useCompany } from '@/lib/useCompany';
 import PageHeader from '@/components/PageHeader';
 import Loading from '@/components/Loading';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Pencil, Check, X } from 'lucide-react';
 import type { Department } from '@/lib/types';
 
 export default function DepartamentosPage() {
@@ -14,6 +14,8 @@ export default function DepartamentosPage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', manager: '' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', manager: '' });
 
   const load = async () => {
     if (!companyId) return;
@@ -33,15 +35,27 @@ export default function DepartamentosPage() {
     e.preventDefault();
     if (!companyId) return;
     setSaving(true);
-    await supabase.from('departments').insert({
-      company_id: companyId, name: form.name, manager: form.manager || null,
-    });
+    await supabase.from('departments').insert({ company_id: companyId, name: form.name, manager: form.manager || null });
     setForm({ name: '', manager: '' });
     setShowForm(false); setSaving(false);
     load();
   };
 
+  const handleEdit = (dept: Department) => {
+    setEditingId(dept.id);
+    setEditForm({ name: dept.name, manager: dept.manager || '' });
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    setSaving(true);
+    await supabase.from('departments').update({ name: editForm.name, manager: editForm.manager || null }).eq('id', id);
+    setSaving(false);
+    setEditingId(null);
+    load();
+  };
+
   const handleDelete = async (id: string) => {
+    if (!confirm('Remover este departamento?')) return;
     await supabase.from('departments').delete().eq('id', id);
     load();
   };
@@ -94,14 +108,45 @@ export default function DepartamentosPage() {
             <tbody className="divide-y divide-gray-50">
               {items.map((dept) => (
                 <tr key={dept.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-5 py-3 text-sm font-medium">{dept.name}</td>
-                  <td className="px-5 py-3 text-sm text-gray-600">{dept.manager || '-'}</td>
+                  <td className="px-5 py-3">
+                    {editingId === dept.id ? (
+                      <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                    ) : (
+                      <span className="text-sm font-medium">{dept.name}</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {editingId === dept.id ? (
+                      <input value={editForm.manager} onChange={(e) => setEditForm({ ...editForm, manager: e.target.value })}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="Responsável" />
+                    ) : (
+                      <span className="text-sm text-gray-600">{dept.manager || '-'}</span>
+                    )}
+                  </td>
                   <td className="px-5 py-3 text-sm text-gray-500">{new Date(dept.created_at).toLocaleDateString('pt-BR')}</td>
                   <td className="px-5 py-3 text-right">
-                    <button onClick={() => handleDelete(dept.id)}
-                      className="text-red-400 hover:text-red-600 transition-colors p-1">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex gap-1 justify-end">
+                      {editingId === dept.id ? (
+                        <>
+                          <button onClick={() => handleSaveEdit(dept.id)} disabled={saving} className="p-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="p-1.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => handleEdit(dept)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => handleDelete(dept.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
