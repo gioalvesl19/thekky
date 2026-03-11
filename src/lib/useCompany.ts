@@ -32,16 +32,19 @@ export function useCompany() {
           .eq('id', user.id)
           .single();
 
-        if (profileError || !profile) {
-          // Usuário autenticado mas sem perfil — fazer logout e redirecionar
+        // Só faz logout se o erro for especificamente "sem linhas" (PGRST116)
+        // Outros erros (rede, timeout) NÃO devem deslogar
+        if (!profile && profileError?.code === 'PGRST116') {
           await supabase.auth.signOut();
           router.replace('/login');
           return;
         }
 
-        setCompanyId(profile.company_id);
-        setRole((profile.role as UserRole) || 'user');
-        setUserName(profile.name || '');
+        if (profile) {
+          setCompanyId(profile.company_id);
+          setRole((profile.role as UserRole) || 'user');
+          setUserName(profile.name || '');
+        }
       } catch (e) {
         console.error('useCompany error:', e);
         setError('Erro ao carregar dados');
